@@ -14,8 +14,8 @@ import glob
 from datetime import datetime
 import re
 
-from db import EuroDB
-from dbStats import StatsDB
+from eurodb import EuroDB
+from fomdb import StatsDB
 
 script_dir = os.getcwd()
 config = configparser.ConfigParser()
@@ -34,6 +34,8 @@ eurodb = EuroDB(
 
 VERBOSE = config["info"]["verbose"]
 
+MACHINE = config["machine"]["name"]
+WORKCODE = config["machine"]["workcode"]
 
 def verbose(s: str) -> None:
     if VERBOSE:
@@ -60,7 +62,7 @@ def is_updatable(new_date: datetime, rec_date: datetime) -> bool:
 def main() -> None:
     c = 0
     ordini_tagliati = statsdb.get_ordini_tagliati()
-    ordini_registrati = eurodb.get_ordini_tagliati()
+    ordini_registrati = eurodb.get_ordini_tagliati(MACHINE)
 
     for ordine, tempi in ordini_tagliati.items():
         if not(is_number_valid(ordine)):
@@ -70,12 +72,34 @@ def main() -> None:
             verbose(f"{ordine} già registrato il {ordini_registrati[ordine][1]}")
             if is_updatable(datetime.strptime(tempi[1], '%Y-%m-%d %H:%M:%S'), ordini_registrati[ordine][1]):
                 verbose(f"{ordine} aggiornato al nuovo giorno.")
-                eurodb.add_log(tempi[1], get_numero(ordine), get_lotto(ordine), True, 1)
+                eurodb.add_log(
+                    ts=tempi[1], 
+                    numero=get_numero(ordine), 
+                    lotto=get_lotto(ordine), 
+                    machine=MACHINE,
+                    workcode=WORKCODE,
+                    fine=True, 
+                    secondi=1)
+                c += 1
             continue
         verbose(f"Registro inizio e fine ordine {ordine}")
-        eurodb.add_log(tempi[0], get_numero(ordine), get_lotto(ordine), False, 0)
+        eurodb.add_log(
+                    ts=tempi[0], 
+                    numero=get_numero(ordine), 
+                    lotto=get_lotto(ordine), 
+                    machine=MACHINE,
+                    workcode=WORKCODE,
+                    fine=False, 
+                    secondi=0)
         c += 1
-        eurodb.add_log(tempi[1], get_numero(ordine), get_lotto(ordine), True, 1)
+        eurodb.add_log(
+                    ts=tempi[1], 
+                    numero=get_numero(ordine), 
+                    lotto=get_lotto(ordine), 
+                    machine=MACHINE,
+                    workcode=WORKCODE,
+                    fine=True, 
+                    secondi=1)
         c += 1
 
     eurodb.connection.commit()
